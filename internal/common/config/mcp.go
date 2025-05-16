@@ -73,18 +73,24 @@ type (
 	}
 
 	ArgConfig struct {
-		Name        string      `yaml:"name" json:"name"`
-		Position    string      `yaml:"position" json:"position"` // header, query, path, body
-		Required    bool        `yaml:"required" json:"required"`
-		Type        string      `yaml:"type" json:"type"`
-		Description string      `yaml:"description" json:"description"`
-		Default     string      `yaml:"default" json:"default"`
-		Items       ItemsConfig `yaml:"items,omitempty" json:"items,omitempty"`
+		Name         string           `yaml:"name" json:"name"`
+		Position     string           `yaml:"position" json:"position"` // header, query, path, body
+		Required     bool             `yaml:"required" json:"required"`
+		Type         string           `yaml:"type" json:"type"`
+		Description  string           `yaml:"description" json:"description"`
+		Default      string           `yaml:"default" json:"default"`
+		Items        ItemsConfig      `yaml:"items,omitempty" json:"items,omitempty"`
+		FilterConfig *FilterArgConfig `yaml:"filterConfig,omitempty" json:"filterConfig,omitempty"`
 	}
 
 	ItemsConfig struct {
 		Type string   `yaml:"type" json:"type"`
 		Enum []string `yaml:"enum,omitempty" json:"enum,omitempty"`
+	}
+
+	FilterArgConfig struct {
+		Operator string `yaml:"operator" json:"operator"` // 默认操作符
+		IsDate   bool   `yaml:"isDate" json:"isDate"`     // 是否为日期类型
 	}
 )
 
@@ -131,4 +137,49 @@ func (t *ToolConfig) ToToolSchema() mcp.ToolSchema {
 			Required:   required,
 		},
 	}
+}
+
+// Merge merges the current tool config with another tool config
+func (t *ToolConfig) Merge(other *ToolConfig) {
+    // 保留原有的 FilterConfig
+    for i, arg := range t.Args {
+        if i < len(other.Args) {
+            if arg.FilterConfig != nil {
+                other.Args[i].FilterConfig = arg.FilterConfig
+            }
+        }
+    }
+    
+    // 保留其他需要保留的配置
+    if t.Description != "" && other.Description == "" {
+        other.Description = t.Description
+    }
+    
+    // 合并 Headers
+    if other.Headers == nil {
+        other.Headers = make(map[string]string)
+    }
+    for k, v := range t.Headers {
+        if _, exists := other.Headers[k]; !exists {
+            other.Headers[k] = v
+        }
+    }
+    
+    // 保留其他字段的默认值
+    if t.RequestBody != "" && other.RequestBody == "" {
+        other.RequestBody = t.RequestBody
+    }
+    if t.ResponseBody != "" && other.ResponseBody == "" {
+        other.ResponseBody = t.ResponseBody
+    }
+    
+    // 合并 InputSchema
+    if other.InputSchema == nil {
+        other.InputSchema = make(map[string]any)
+    }
+    for k, v := range t.InputSchema {
+        if _, exists := other.InputSchema[k]; !exists {
+            other.InputSchema[k] = v
+        }
+    }
 }

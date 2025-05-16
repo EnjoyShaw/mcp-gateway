@@ -104,21 +104,32 @@ func mergeConfigServers(base, override []config.ServerConfig, deleteMode bool) [
 
 func mergeConfigTools(base, override []config.ToolConfig, deleteMode bool) []config.ToolConfig {
 	toolMap := make(map[string]config.ToolConfig)
-	for _, tool := range base {
-		toolMap[tool.Name] = tool
-	}
-	for _, tool := range override {
-		if deleteMode {
-			delete(toolMap, tool.Name)
-		} else {
-			toolMap[tool.Name] = tool
-		}
-	}
-
-	mergedTools := make([]config.ToolConfig, 0, len(toolMap))
-	for _, tool := range toolMap {
-		mergedTools = append(mergedTools, tool)
-	}
-
-	return mergedTools
+    
+    // 首先将所有基础配置放入 map
+    for _, tool := range base {
+        toolMap[tool.Name] = tool
+    }
+    
+    // 处理覆盖配置
+    for _, tool := range override {
+        if deleteMode {
+            delete(toolMap, tool.Name)
+        } else {
+            if existingTool, exists := toolMap[tool.Name]; exists {
+                // 如果工具已存在，合并配置
+                existingTool.Merge(&tool)
+                toolMap[tool.Name] = tool
+            } else {
+                // 如果是新工具，直接添加
+                toolMap[tool.Name] = tool
+            }
+        }
+    }
+    
+    // 转换回切片
+    mergedTools := make([]config.ToolConfig, 0, len(toolMap))
+    for _, tool := range toolMap {
+        mergedTools = append(mergedTools, tool)
+    }
+    return mergedTools
 }

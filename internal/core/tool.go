@@ -55,9 +55,27 @@ func prepareRequest(tool *config.ToolConfig, tmplCtx *template.Context) (*http.R
 
 // processArguments processes tool arguments and adds them to the request
 func processArguments(req *http.Request, tool *config.ToolConfig, args map[string]any) {
+	var filters []map[string]interface{}
+
 	for _, arg := range tool.Args {
 		value := fmt.Sprint(args[arg.Name])
 		switch strings.ToLower(arg.Position) {
+		case "filter":
+			// 处理 filter 类型的参数
+			filter := map[string]interface{}{
+				"property": arg.Name,
+				"value":    value,
+			}
+			// 使用配置的操作符，如果没有则默认使用 "like"
+			if arg.FilterConfig != nil {
+				filter["operator"] = arg.FilterConfig.Operator
+				if arg.FilterConfig.IsDate {
+					filter["isDate"] = true
+				}
+			} else {
+				filter["operator"] = "like"
+			}
+			filters = append(filters, filter)
 		case "header":
 			req.Header.Set(arg.Name, value)
 		case "query":
@@ -79,6 +97,13 @@ func processArguments(req *http.Request, tool *config.ToolConfig, args map[strin
 			req.Body = io.NopCloser(&b)
 			req.Header.Set("Content-Type", writer.FormDataContentType())
 		}
+	}
+
+	if len(filters) > 0 {
+		filterJSON, _ := json.Marshal(filters)
+		q := req.URL.Query()
+		q.Add("filter", string(filterJSON))
+		req.URL.RawQuery = q.Encode()
 	}
 }
 
